@@ -14,12 +14,12 @@ def date_articles(blog_url)
   dates = (oldest_date..Date.today).map { |e| [e.strftime("%F"), 0] }.to_h
   catch(:nested_break) do
     sitemap_root_url = "#{blog_url.gsub(/\/$/, "")}/sitemap.xml"
-    xml = open(sitemap_root_url).read
+    xml = URI.open(sitemap_root_url).read
     site_map_urls = Ox.load(xml, mode: :hash_no_attrs)[:sitemapindex][:sitemap]
     # 先頭は記事ではない為除外
     1..14.times do |index|
       site_map_url = site_map_urls[index][:loc]
-      xml = open(site_map_url).read
+      xml = URI.open(site_map_url).read
       urls = Ox.load(xml, mode: :hash_no_attrs)
       if urls[:urlset] && urls[:urlset].length > 0
         # urlが１つだけだと配列にならないのでflatten
