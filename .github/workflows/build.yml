@@ -1,0 +1,58 @@
+name: Build Ruby app
+
+on:
+  push:
+
+env:
+  IMAGE_NAME: ghcr.io/${{ github.repository }}:${{ github.run_number }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+      contents: write
+    steps:
+    ##############################################
+    # 共通
+    ###############################################
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    # #############################################
+    # Kubernetes
+    # ##############################################
+    - name: Log in to the Container registry
+      uses: docker/login-action@v2
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Push Docker image
+      uses: docker/build-push-action@v3
+      with:
+        context: .
+        push: true
+        tags: |
+          ${{ env.IMAGE_NAME }}
+        file: Dockerfile
+
+    - name: Push remote
+      run: |
+        git config --global user.name thr3a
+        git config --global user.email thr3a@example.com
+        git clone https://${{secrets.MANIFEST_TOKEN}}@github.com/thr3a/kubernetes-manifests /tmp/app
+        cd /tmp/app
+        yq '.spec.template.spec.containers[0].image = "${{ env.IMAGE_NAME }}"' argo/hatena-blog-shibafu/deployment.yaml -i
+        git add .
+        git commit -m "update: ${{ env.IMAGE_NAME }}"
+        git push
+
+    - name: Notification discord
+      uses: sarisia/actions-status-discord@v1
+      if: failure()
+      # if: always()
+      with:
+        webhook: ${{ secrets.DISCORD_WEBHOOK }}
+        status: ${{ job.status }}
